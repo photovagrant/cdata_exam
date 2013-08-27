@@ -26,6 +26,7 @@
 //				  const struct file_operations *fops)
 static int cdata_open(struct inode *inode,struct file *filp)
 {
+//cdata kmalloc 
 printk(KERN_INFO "cdata_open");
 return 0;
 }
