@@ -20,7 +20,7 @@
 #include <linux/random.h>
 #include <linux/init.h>
 #include <linux/smp_lock.h>
-
+#include <linux/mutex.h>
 #include <asm/uaccess.h>
 #include <asm/system.h>
 #include <asm/io.h>
@@ -39,7 +39,7 @@ struct busmouse_data {
 	struct miscdevice	miscdev;
 	struct busmouse		*ops;
 	spinlock_t		lock;
-
+	//DEFINE_MUTEX(mutex);
 	wait_queue_head_t	wait;
 	struct fasync_struct	*fasyncptr;
 	char			active;
@@ -47,6 +47,7 @@ struct busmouse_data {
 	char			ready;
 	int			dxpos;
 	int			dypos;
+	struct 
 };
 
 #define NR_MICE			15
@@ -192,7 +193,7 @@ static int busmouse_open(struct inode *inode, struct file *file)
 	mousedev = DEV_TO_MOUSE(inode->i_rdev);
 	if (mousedev >= NR_MICE)
 		return -EINVAL;
-
+	//mutex_lock(busmouse_data[NR_MICE]->mutex);
 	down(&mouse_sem);
 	mse = busmouse_data[mousedev];
 	ret = -ENODEV;
@@ -227,6 +228,7 @@ static int busmouse_open(struct inode *inode, struct file *file)
 	spin_unlock_irq(&mse->lock);
 end:
 	up(&mouse_sem);
+	//mutex_unlock(busmouse_data[NR_MICE]->mutex);
 	return ret;
 }
 
@@ -247,6 +249,7 @@ static ssize_t busmouse_read(struct file *file, char *buffer, size_t count, loff
 	spin_lock_irq(&mse->lock);
 
 	if (!mse->ready) {
+	// can change mse->ready as atomic operarion APIS , val=atomic_read(&sum)
 #ifdef BROKEN_MOUSE
 		spin_unlock_irq(&mse->lock);
 		return -EAGAIN;
