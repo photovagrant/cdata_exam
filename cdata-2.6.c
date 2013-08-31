@@ -142,7 +142,7 @@ static ssize_t cdata_write(struct file *filp, const char *buf, size_t size,
 	for (i = 0; i < size; i++) {
 	    if (index >= BUF_SIZE) {
 		
-		down_interruptible(&cdata->sem);
+		down_interruptible(&cdata->sem);  // ! Kernel APT , it's same as lock
 		cdata->index = index;
 		up(&cdata->sem);
 
@@ -168,7 +168,7 @@ repeat:
  		
 		down_interruptible(&cdata->sem);
 		index = cdata->index;
-		up(&cdata->sem);
+		up(&cdata->sem);  // kernel api  it's same as unlock
 
 		if (index != 0) //if ==0 , remore this from queue.
 		    goto repeat;
