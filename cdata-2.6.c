@@ -124,7 +124,7 @@ static ssize_t cdata_write(struct file *filp, const char *buf, size_t size,
 	unsigned int index;
 	unsigned int i;
         wait_queue_head_t *wq;
-	wait_queue_t wait;
+	wait_queue_t wait; //add this one 20130831
 
 	mutex_lock(&cdata->mutex);
 
@@ -160,16 +160,16 @@ static ssize_t cdata_write(struct file *filp, const char *buf, size_t size,
 		wait.task = current;
 		add_wait_queue(wq, &wait);
 repeat:
- 		current->state = TASK_INTERRUPTIBLE;
-		schedule();
+ 		current->state = TASK_INTERRUPTIBLE; //currunt just only be changed as interruptible
+		schedule();//reschedule, context switch , driver will be stop here, wait this process be change to running , (it will be determin work queue pirority.
  		
 		down_interruptible(&cdata->sem);
 		index = cdata->index;
 		up(&cdata->sem);
 
-		if (index != 0)
+		if (index != 0) //if ==0 , remore this from queue.
 		    goto repeat;
-
+		current->state =TASK_RUNNING; //this one can be exist ,but suggest have!
 		remove_wait_queue(wq, &wait);
 		del_timer(sched);
 	    }
