@@ -155,12 +155,15 @@ static ssize_t cdata_write(struct file *filp, const char *buf, size_t size,
 		sched->function = cdata_wake_up;
 		sched->data = (unsigned long)cdata;
 		add_timer(sched);
-
+		//from below to end of marked , it's "prepare_to_wait()
 		wait.flags = 0;	
 		wait.task = current;
 		add_wait_queue(wq, &wait);
 repeat:
  		current->state = TASK_INTERRUPTIBLE; //currunt just only be changed as interruptible
+
+		// marked END // 
+
 		schedule();//reschedule, context switch , driver will be stop here, wait this process be change to running , (it will be determin work queue pirority.
  		
 		down_interruptible(&cdata->sem);
