@@ -118,13 +118,14 @@ static ssize_t cdata_write(struct file *filp, const char *buf, size_t size, loff
     int i;
 
     // NOTE: put shared data into local variables
-    down_interruptible(&cdata->sem);
-
+    //down_interruptible(&cdata->sem);
+	
+    mutex_lock(&cdata->lock);
     index = cdata->index;
 
     // NOTE: share the same memory space
     //wq = &cdata->wq;
-    mutex_lock(&cdata->lock);
+    mutex_unlock(&cdata->lock);
     //up(&cdata->sem);
 
     for (i = 0; i < size; i++) {
@@ -143,9 +144,12 @@ repeat:
             set_current_state(TASK_INTERRUPTIBLE);
             schedule()
 
-	    down_interruptible(&cdata->sem);
+    	    mutex_lock(&cdata->lock);
+	    //down_interruptible(&cdata->sem);
             index = cdata->index;
-	    up(&cdata->sem);
+	   // up(&cdata->sem);
+
+    	    mutex_unlock(&cdata->lock);
 
             if (index != 0)
                 goto repeat;
@@ -156,7 +160,8 @@ repeat:
         index++;
     }
 
-    down_interruptible(&cdata->sem);
+    //down_interruptible(&cdata->sem);
+    mutex_lock(&cdata->lock);
     cdata->index = index;
     //up(&cdata->sem);
     mutex_unlock(&cdata->lock);
