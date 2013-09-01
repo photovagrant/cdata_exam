@@ -92,6 +92,17 @@ static ssize_t cdata_read(struct file *filp, char *buf, size_t size, loff_t *off
 {
     return 0;
 }
+//
+/*
+Sempahore must care below thing .
+1.local variable
+2.atomic operation
+3.SMP support (avoid IO reordering ,use memory barrier)
+4.Code review.
+
+*/
+
+
 
 static ssize_t cdata_write(struct file *filp, const char *buf, size_t size, loff_t *off)
 {
@@ -126,7 +137,9 @@ repeat:
             set_current_state(TASK_INTERRUPTIBLE);
             schedule()
 
+	    down_interruptible(&cdata->sem);
             index = cdata->index;
+	    up(&cdata->sem);
 
             if (index != 0)
                 goto repeat;
@@ -137,9 +150,9 @@ repeat:
         index++;
     }
 
+    down_interruptible(&cdata->sem);
     cdata->index = index;
-    
-   up(&cdata->sem);
+    up(&cdata->sem);
 
     return 0;
 }
