@@ -33,6 +33,7 @@ struct cdata_t {
     struct mutex *lock;
     struct work_struct work;
     struct spinlock_t *fastlock;
+ 
 };
 // Global lock 
 DEFINE_MUTEX(cdata_sem);
