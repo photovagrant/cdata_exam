@@ -48,17 +48,22 @@ void flush_buffer((struct work_struct *work)
     ioaddr = (unsigned char *)cdata->fbmem;
     // could call scheduler to reschedule.
 
+    spin_lock_irq(&cdata->fastlock);
     for (i = 0; i < BUF_SIZE; i++) {
         if (ioaddr >= cdata->fbmem_end)
             ioaddr = cdata->fbmem_start;
-        writeb(cdata->buf[i], ioaddr++); 
+	
+        writeb(cdata->buf[i], ioaddr++); // just care any interrupt active, so just add spin lock irq.
     }
+
+
+    spin_unlock_irq(&cdata->faselock);
 
     cdata->fbmem = ioaddr;
 
     //mutex_lock(&cdata->lock); mutex time is bigger than to long
     //spin_lock(); spin lock couldn't protect a stat that interrupt action when cdata->index operation.
-    spin_lock_irq(&cdata->fastlock);
+    //spin_lock_irq(&cdata->fastlock);
     cdata->index = 0; // if use atomic operation to make cdata->index = 0 , the sping_lock is not necessary to have .
     spin_unlock_irq(&cdata->faselock);
     //spin_unlock();
@@ -165,7 +170,7 @@ repeat:
 
             remove_wait_queue(wq, &wait);
         }
-        copy_from_user(&cdata->buf[index], &buf[i], 1);
+        copy_from_user(&cdata->buf[index], &buf[i], 1); // almost kernel api are atomic program
         index++;
     }
 
