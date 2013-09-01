@@ -29,12 +29,14 @@ struct cdata_t {
     wait_queue_head_t   wq;
     unsigned char        *fbmem;
     unsigned char        *fbmem_start, *fbmem_end;
-    struct timer_list   timer;
+
+    struct semaphore sem;
+    struct work_struct work;
 };
 
-void flush_buffer(unsigned long priv)
+void flush_buffer((struct work_struct *work)
 {
-    struct cdata_t *cdata = (struct cdata_t *)priv;
+    struct cdata_t *cdata = container_of(work, struct cdata_t, work);
     unsigned char *ioaddr;
     int i;
 
@@ -64,6 +66,9 @@ static int cdata_open(struct inode *inode, struct file *filp)
     cdata->index = 0;
     init_waitqueue_head(&cdata->wq);
 
+    sema_init(&cdata->sem, 0);
+    INIT_WORK(&cdata->work, flush_buffer);
+
     cdata->fbmem_start = (unsigned int *) 
             ioremap(IO_MEM, VGA_MODE_WIDTH
                     * VGA_MODE_HEIGHT
@@ -76,8 +81,6 @@ static int cdata_open(struct inode *inode, struct file *filp)
                                       / 8;
 
     cdata->fbmem = cdata->fbmem_start;
-
-    init_timer(&cdata->timer);
 
     filp->private_data = (void *)cdata;
 
@@ -93,29 +96,50 @@ static ssize_t cdata_read(struct file *filp, char *buf, size_t size, loff_t *off
 static ssize_t cdata_write(struct file *filp, const char *buf, size_t size, loff_t *off)
 {
     struct cdata_t *cdata = (struct cdata_t *)filp->private_data;
-    struct timer_list *timer;
-    unsigned int index = cdata->index;
+    unsigned int index;
+    wait_queue_t wait;
     int i;
 
-    timer = &cdata->timer;
+    // NOTE: put shared data into local variables
+    down_interruptible(&cdata->sem);
+
+    index = cdata->index;
+
+    // NOTE: share the same memory space
+    //wq = &cdata->wq;
+
+    up(&cdata->sem);
 
     for (i = 0; i < size; i++) {
         if (index >= BUF_SIZE) {
             printk(KERN_INFO "cdata: buffer full\n");
 
-            timer->expires =  jiffies + 1;
-            timer->function = flush_buffer;
-            timer->data = (unsigned long)cdata;
+            schedule_work_on(1, &cdata->work);
 
-            add_timer(timer);
+            wait.flags = 0;
+            wait.task = current;
 
-            interruptible_sleep_on(&cdata->wq); //re-scheduling
+            // NOTE: must be atomic operation
+            add_wait_queue(&cdata->wq, &wait);
+repeat:
+            //current->state = TASK_INTERRUPTIBLE;
+            set_current_state(TASK_INTERRUPTIBLE);
+            schedule()
+
+            index = cdata->index;
+
+            if (index != 0)
+                goto repeat;
+
+            remove_wait_queue(wq, &wait);
         }
         copy_from_user(&cdata->buf[index], &buf[i], 1);
         index++;
     }
 
     cdata->index = index;
+    
+   up(&cdata->sem);
 
     return 0;
 }
@@ -128,8 +152,6 @@ static int cdata_close(struct inode *inode, struct file *filp)
     cdata->buf[index] = '\0';
 
     printk(KERN_INFO "in cdata_close: %s\n", cdata->buf);
-
-    del_timer(&cdata->timer);
 
     return 0;
 }
