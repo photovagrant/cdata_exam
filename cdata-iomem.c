@@ -32,8 +32,9 @@ struct cdata_t {
     //struct semaphore sem;
     struct mutex *lock;
     struct work_struct work;
+    struct spinlock_t *fastlock;
 };
-// Global lock
+// Global lock 
 DEFINE_MUTEX(cdata_sem);
 
 
@@ -44,16 +45,23 @@ void flush_buffer((struct work_struct *work)
     int i;
 
     ioaddr = (unsigned char *)cdata->fbmem;
+    // could call scheduler to reschedule.
 
     for (i = 0; i < BUF_SIZE; i++) {
         if (ioaddr >= cdata->fbmem_end)
             ioaddr = cdata->fbmem_start;
-
         writeb(cdata->buf[i], ioaddr++); 
     }
 
     cdata->fbmem = ioaddr;
-    cdata->index = 0;
+
+    //mutex_lock(&cdata->lock); mutex time is bigger than to long
+    //spin_lock(); spin lock couldn't protect a stat that interrupt action when cdata->index operation.
+    spin_lock_irq(&cdata->fastlock);
+    cdata->index = 0; // if use atomic operation to make cdata->index = 0 , the sping_lock is not necessary to have .
+    spin_unlock_irq(&cdata->faselock);
+    //spin_unlock();
+    //mutex_unlock(&cdata->lock);
 
     wake_up(&cdata->wq);
 }
