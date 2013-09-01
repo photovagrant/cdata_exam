@@ -20,6 +20,7 @@
 #include "linux/slab.h"
 #include "linux/wait.h"
 
+#include "linux/workqueue.h"
 
 //#define IO_MEM 0xe0000000
 //#define VGA_MODE_WIDTH 640
@@ -32,6 +33,10 @@
 #define VGA_MODE_BPP 32
 #define BUF_SIZE 1024
 #define RESERVED_ADR 0x33f00000
+
+extern int schedule_work_on(int cpu, struct work_struct *work);
+
+
 //*imortant !!!!
 struct cdata_t {
 	char *buf;
@@ -40,6 +45,7 @@ struct cdata_t {
 	unsigned char *fbmem_start,*fbmem_end;
 	//unsigned int fbmem_index;
 	wait_queue_head_t wq;
+	work_struct ws;
 	struct timer_list timer;
 };
 
@@ -57,7 +63,7 @@ static int cdata_open(struct inode *inode, struct file *filp)
 	cdata->buf=(char *)kmalloc(BUF_SIZE,GFP_KERNEL); //kmalloc can provide a private space for differnet reentrant progarm. 
 	cdata->index=0;
 	init_waitqueue_head(&cdata->wq); //refrence OS ch4 representation of process schedule. add program to wait queue
-
+	INIT_WORK(&cdata->ws,flush_buffer);
 	//static inline void __iomem *ioremap(phys_addr_t offset, unsigned long size)
 	//init_timer(&cdata->timer);
 	cdata->fbmem_start=(unsigned int *)ioremap(IO_MEM,VGA_MODE_WIDTH
@@ -92,6 +98,7 @@ static ssize_t cdata_read(struct file *filp, char *buf, size_t size, loff_t *off
 }
 void flush_buffer(unsigned long priv)
 {
+	//container_of();
 	struct cdata_t *cdata =(struct cdata_t *)priv;
 	//unsigned char *ioaddr;
 	unsigned char *ioaddr;
@@ -146,12 +153,13 @@ loff_t *off)
 			printk(KERN_INFO "cdata over 1024i\n");
 			//interruptible_sleep_on_timeout(&cdata->wq,1*HZ); //rescheduling
 			//index=0;
-			timer->function=flush_buffer;
-			timer->expires = jiffies + 1;
+			//timer->function=flush_buffer;
+			//timer->expires = jiffies + 1;
 			//timer->function = flush_lcd;
-			timer->data = (unsigned long)cdata;
-			add_timer(timer);
-			interruptible_sleep_on(&cdata->wq);	
+			//timer->data = (unsigned long)cdata;
+			//add_timer(timer);
+			//interruptible_sleep_on(&cdata->wq);	
+			schedule_work_on(1,&cdata->wt);
 			//current->state = TASK_INTERRUPTIBLE; //switch state from running to waiting
 			//schedule();
 			//return -1; //buffer full

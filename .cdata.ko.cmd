@@ -1,0 +1,1 @@
+cmd_/home/jason/Documents/github/cdata_exam/cdata.ko := ld -r -m elf_x86_64 -T /usr/src/linux-headers-3.8.0-19-generic/scripts/module-common.lds --build-id  -o /home/jason/Documents/github/cdata_exam/cdata.ko /home/jason/Documents/github/cdata_exam/cdata.o /home/jason/Documents/github/cdata_exam/cdata.mod.o

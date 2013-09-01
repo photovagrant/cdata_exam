@@ -264,7 +264,7 @@ repeat:
 		set_current_state(TASK_INTERRUPTIBLE);
 		if (!mse->ready && !signal_pending(current)) {
 			spin_unlock_irq(&mse->lock);
-			schedule();
+			schedule();  // must unlock irq , if befor irq unlock and call schedule , it's will got fatal error!!! blocking API (schedule) can't call schedule.
 			spin_lock_irq(&mse->lock);
 			goto repeat;
 		}
