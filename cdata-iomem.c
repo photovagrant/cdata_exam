@@ -29,10 +29,13 @@ struct cdata_t {
     wait_queue_head_t   wq;
     unsigned char        *fbmem;
     unsigned char        *fbmem_start, *fbmem_end;
-
-    struct semaphore sem;
+    //struct semaphore sem;
+    struct mutex *lock;
     struct work_struct work;
 };
+// Global lock
+DEFINE_MUTEX(cdata_sem);
+
 
 void flush_buffer((struct work_struct *work)
 {
@@ -59,14 +62,15 @@ static int cdata_open(struct inode *inode, struct file *filp)
 {
     struct cdata_t *cdata;
     int i;
-
+    //mutex_lock(&cdata_sem);
     cdata = (struct cdata_t *)kmalloc(sizeof(struct cdata_t), GFP_KERNEL);
     cdata->buf = (char *)kmalloc(BUF_SIZE, GFP_KERNEL);
 
     cdata->index = 0;
     init_waitqueue_head(&cdata->wq);
-
-    sema_init(&cdata->sem, 0);
+	
+    //sema_init(&cdata->sem, 0);
+    mutex_init(&cdata->lock);
     INIT_WORK(&cdata->work, flush_buffer);
 
     cdata->fbmem_start = (unsigned int *) 
@@ -85,6 +89,8 @@ static int cdata_open(struct inode *inode, struct file *filp)
     filp->private_data = (void *)cdata;
 
     printk(KERN_INFO "in cdata_open: filp = %08x\n", filp);
+
+   // mutex_unlock(&cdata_sem); it's non necessary .. cause open will keep own data.
     return 0;
 }
 
@@ -118,8 +124,8 @@ static ssize_t cdata_write(struct file *filp, const char *buf, size_t size, loff
 
     // NOTE: share the same memory space
     //wq = &cdata->wq;
-
-    up(&cdata->sem);
+    mutex_lock(&cdata->lock);
+    //up(&cdata->sem);
 
     for (i = 0; i < size; i++) {
         if (index >= BUF_SIZE) {
@@ -152,7 +158,8 @@ repeat:
 
     down_interruptible(&cdata->sem);
     cdata->index = index;
-    up(&cdata->sem);
+    //up(&cdata->sem);
+    mutex_unlock(&cdata->lock);
 
     return 0;
 }
